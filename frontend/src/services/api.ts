@@ -32,7 +32,7 @@ api.interceptors.request.use((config) => {
 // Rafraîchissement automatique du token d'accès sur 401.
 let refreshing: Promise<string | null> | null = null;
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   try {
     const { data } = await axios.post<{ accessToken: string }>(
       `${API_URL}/api/auth/refresh`,

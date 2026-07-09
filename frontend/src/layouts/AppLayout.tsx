@@ -11,6 +11,8 @@ import {
   Shield,
   Menu,
   X,
+  BookOpen,
+  Info,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { GroupProvider, useGroup } from '../context/GroupContext.js';
@@ -20,6 +22,24 @@ import { cn } from '../utils/cn.js';
 import { PageLoader } from '../components/Spinner.js';
 import { Topbar } from './Topbar.js';
 
+// Précharge le chunk de la page au survol/focus → navigation quasi instantanée.
+const prefetchers: Record<string, () => Promise<unknown>> = {
+  '': () => import('../pages/DashboardPage.js'),
+  record: () => import('../pages/RecordMatchPage.js'),
+  players: () => import('../pages/PlayersPage.js'),
+  history: () => import('../pages/HistoryPage.js'),
+  rankings: () => import('../pages/RankingsPage.js'),
+  'head-to-head': () => import('../pages/HeadToHeadPage.js'),
+  notifications: () => import('../pages/NotificationsPage.js'),
+  guide: () => import('../pages/GuidePage.js'),
+  about: () => import('../pages/AboutPage.js'),
+  admin: () => import('../pages/AdminPage.js'),
+};
+
+function prefetchRoute(to: string) {
+  void prefetchers[to]?.();
+}
+
 const navItems = [
   { to: '', label: 'Tableau de bord', icon: LayoutDashboard, end: true },
   { to: 'record', label: 'Enregistrer un match', icon: PlusCircle, end: false },
@@ -28,6 +48,8 @@ const navItems = [
   { to: 'rankings', label: 'Classements', icon: Trophy, end: false },
   { to: 'head-to-head', label: 'Face-à-Face', icon: Swords, end: false },
   { to: 'notifications', label: 'Notifications', icon: Bell, end: false },
+  { to: 'guide', label: "Guide d'utilisation", icon: BookOpen, end: false },
+  { to: 'about', label: 'À propos', icon: Info, end: false },
 ];
 
 function Sidebar({ groupName, onNavigate }: { groupName: string; onNavigate?: () => void }) {
@@ -50,6 +72,8 @@ function Sidebar({ groupName, onNavigate }: { groupName: string; onNavigate?: ()
           to={`/g/${groupId}/${item.to}`.replace(/\/$/, '')}
           end={item.end}
           onClick={onNavigate}
+          onMouseEnter={() => prefetchRoute(item.to)}
+          onFocus={() => prefetchRoute(item.to)}
           className={({ isActive }) => cn('nav-link', isActive && 'nav-link-active')}
         >
           <item.icon className="h-5 w-5" />
@@ -61,6 +85,8 @@ function Sidebar({ groupName, onNavigate }: { groupName: string; onNavigate?: ()
         <NavLink
           to={`/g/${groupId}/admin`}
           onClick={onNavigate}
+          onMouseEnter={() => prefetchRoute('admin')}
+          onFocus={() => prefetchRoute('admin')}
           className={({ isActive }) => cn('nav-link', isActive && 'nav-link-active')}
         >
           <Shield className="h-5 w-5" />

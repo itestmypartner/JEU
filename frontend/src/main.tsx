@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, keepPreviousData } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { App } from './App.js';
 import { AuthProvider } from './context/AuthContext.js';
@@ -12,6 +12,9 @@ const queryClient = new QueryClient({
       retry: 1,
       staleTime: 30_000,
       refetchOnWindowFocus: false,
+      // Conserve les données précédentes pendant un changement de filtre/page :
+      // les listes ne « clignotent » plus vers un écran de chargement.
+      placeholderData: keepPreviousData,
     },
   },
 });

@@ -21,7 +21,17 @@ import { PageHeader } from '../components/PageHeader.js';
 import { EmptyState } from '../components/EmptyState.js';
 import { Avatar } from '../components/Avatar.js';
 import { formatDateTime } from '../utils/format.js';
+import { describeAudit } from '../utils/audit.js';
+import { cn } from '../utils/cn.js';
 import type { Role } from '../types/index.js';
+
+type JoinRequest = Awaited<ReturnType<typeof adminApi.requests>>[number];
+
+const auditToneClasses: Record<string, string> = {
+  positive: 'bg-brand-500/10 text-brand-600',
+  negative: 'bg-red-500/10 text-red-500',
+  neutral: 'bg-surface-800 text-slate-500',
+};
 
 export function AdminPage() {
   const { groupId, isAdmin } = useGroup();
@@ -52,21 +62,39 @@ export function AdminPage() {
     queryClient.invalidateQueries({ queryKey: ['audit', groupId] });
   };
 
+  // Retire la demande de la liste immédiatement (mise à jour optimiste).
+  const removeRequestOptimistically = async (id: string) => {
+    await queryClient.cancelQueries({ queryKey: ['requests', groupId] });
+    const previous = queryClient.getQueryData<JoinRequest[]>(['requests', groupId]);
+    queryClient.setQueryData<JoinRequest[]>(['requests', groupId], (old) =>
+      old?.filter((r) => r.id !== id),
+    );
+    return { previous };
+  };
+
+  const restoreRequests = (ctx?: { previous?: JoinRequest[] }) => {
+    if (ctx?.previous) queryClient.setQueryData(['requests', groupId], ctx.previous);
+  };
+
   const acceptM = useMutation({
     mutationFn: (id: string) => adminApi.accept(groupId, id),
-    onSuccess: () => {
-      toast.success('Demande acceptée');
-      invalidate();
+    onMutate: removeRequestOptimistically,
+    onSuccess: () => toast.success('Demande acceptée'),
+    onError: (e, _id, ctx) => {
+      restoreRequests(ctx);
+      toast.error(extractError(e));
     },
-    onError: (e) => toast.error(extractError(e)),
+    onSettled: invalidate,
   });
   const rejectM = useMutation({
     mutationFn: (id: string) => adminApi.reject(groupId, id),
-    onSuccess: () => {
-      toast.success('Demande refusée');
-      invalidate();
+    onMutate: removeRequestOptimistically,
+    onSuccess: () => toast.success('Demande refusée'),
+    onError: (e, _id, ctx) => {
+      restoreRequests(ctx);
+      toast.error(extractError(e));
     },
-    onError: (e) => toast.error(extractError(e)),
+    onSettled: invalidate,
   });
   const roleM = useMutation({
     mutationFn: ({ id, role }: { id: string; role: Role }) => adminApi.setRole(groupId, id, role),
@@ -250,16 +278,24 @@ export function AdminPage() {
         {!audit?.length ? (
           <EmptyState icon={ScrollText} title="Aucune action" />
         ) : (
-          <div className="max-h-80 space-y-1.5 overflow-y-auto">
-            {audit.map((log) => (
-              <div key={log.id} className="flex items-center gap-3 rounded-lg px-2 py-1.5 text-sm">
-                <span className="font-mono text-xs text-brand-600">{log.action}</span>
-                <span className="text-slate-600">{log.entity}</span>
-                <span className="ml-auto text-xs text-slate-500">
-                  {log.actor?.name ?? 'Système'} · {formatDateTime(log.createdAt)}
-                </span>
-              </div>
-            ))}
+          <div className="max-h-80 space-y-1 overflow-y-auto">
+            {audit.map((log) => {
+              const { label, Icon, tone } = describeAudit(log.action);
+              return (
+                <div
+                  key={log.id}
+                  className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-surface-850/60"
+                >
+                  <span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', auditToneClasses[tone])}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="font-medium text-slate-800">{label}</span>
+                  <span className="ml-auto whitespace-nowrap text-xs text-slate-500">
+                    {log.actor?.name ?? 'Système'} · {formatDateTime(log.createdAt)}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

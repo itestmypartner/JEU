@@ -10,6 +10,15 @@ import { Avatar } from '../components/Avatar.js';
 import { relativeTime } from '../utils/format.js';
 import { cn } from '../utils/cn.js';
 
+function useDebouncedValue<T>(value: T, delay = 200): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
 function useOutsideClick<T extends HTMLElement>(onClose: () => void) {
   const ref = useRef<T>(null);
   useEffect(() => {
@@ -28,11 +37,12 @@ function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const ref = useOutsideClick<HTMLDivElement>(() => setOpen(false));
   const navigate = useNavigate();
+  const debouncedQ = useDebouncedValue(q.trim(), 200);
 
   const { data } = useQuery({
-    queryKey: ['search', groupId, q],
-    queryFn: () => searchApi.search(groupId, q),
-    enabled: q.trim().length >= 1,
+    queryKey: ['search', groupId, debouncedQ],
+    queryFn: () => searchApi.search(groupId, debouncedQ),
+    enabled: debouncedQ.length >= 1,
   });
 
   const hasResults = data && (data.players.length || data.matches.length || data.teams.length);
