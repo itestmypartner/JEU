@@ -1,0 +1,52 @@
+# Render Blueprint — Zéro Mensonge dans le Jeu
+# Déploiement en un clic : https://render.com/docs/blueprint-spec
+# 1. Renseigner les variables marquées `sync: false` dans le dashboard Render
+#    (DATABASE_URL, CLIENT_URL, VITE_API_URL) puis appliquer le blueprint.
+services:
+  # --- API (Node/Express + Socket.IO) ---
+  - type: web
+    name: zmj-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install && npm run prisma:generate && npm run build && npm run prisma:deploy
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Chaîne de connexion Supabase (Session pooler, IPv4). À renseigner dans le dashboard.
+      - key: DATABASE_URL
+        sync: false
+      # URL publique du frontend (pour CORS + cookies). Ex: https://zmj-frontend.onrender.com
+      - key: CLIENT_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: RATE_LIMIT_WINDOW_MS
+        value: "900000"
+      - key: RATE_LIMIT_MAX
+        value: "300"
+
+  # --- Interface (React + Vite, site statique) ---
+  - type: web
+    name: zmj-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      # URL publique de l'API. Ex: https://zmj-backend.onrender.com
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      # SPA : toutes les routes renvoient vers index.html.
+      - type: rewrite
+        source: /*
+        destination: /index.html

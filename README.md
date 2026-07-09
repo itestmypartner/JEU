@@ -140,11 +140,33 @@ Vous pouvez alors vous connecter avec le compte administrateur de démonstration
 | `npm run lint` | ESLint |
 | `npm run typecheck` | Vérification de types |
 
-## Déploiement
+## Déploiement (Render)
 
-- **Frontend** : Vercel
-- **Backend** : Railway ou Render
-- **Base de données** : Supabase PostgreSQL ou Neon PostgreSQL
+Le dépôt contient un **Blueprint Render** (`render.yaml`) qui déclare deux services :
+`zmj-backend` (API Node) et `zmj-frontend` (site statique React).
+
+### Étapes
+
+1. **Base de données** — créer un projet **Supabase** et récupérer la chaîne de connexion
+   via le bouton **Connect → Session pooler** (IPv4, port 5432) :
+   `postgresql://postgres.<ref>:<mot_de_passe>@aws-1-<region>.pooler.supabase.com:5432/postgres`
+   > L'hôte direct `db.<ref>.supabase.co` est IPv6-only et injoignable depuis Render : utiliser **le pooler**.
+2. Sur Render : **New → Blueprint**, sélectionner ce dépôt. Render lit `render.yaml`.
+3. Renseigner les variables `sync: false` :
+   - Sur `zmj-backend` : `DATABASE_URL` (Supabase) et `CLIENT_URL` (URL publique du frontend, ex. `https://zmj-frontend.onrender.com`).
+   - Sur `zmj-frontend` : `VITE_API_URL` (URL publique du backend, ex. `https://zmj-backend.onrender.com`).
+   - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` sont générés automatiquement.
+4. Appliquer. Le backend exécute automatiquement `prisma migrate deploy` pendant le build.
+5. (Optionnel) Peupler la base de démonstration une fois déployé :
+   `DATABASE_URL="…" npm --prefix backend run seed`.
+
+> Astuce : `CLIENT_URL` et `VITE_API_URL` doivent pointer l'un vers l'autre. Les cookies de
+> refresh sont `SameSite=None; Secure` en production (cross-site), et le CORS n'autorise que
+> `CLIENT_URL` — ces deux URL doivent donc être exactes (sans slash final).
+
+### Alternatives
+
+- **Frontend** : Vercel · **Backend** : Railway · **Base de données** : Neon PostgreSQL
 
 ---
 
